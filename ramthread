@@ -1,0 +1,87 @@
+# ramthread - test more than one piece of code
+# - first parameter (optional): number of repetitions (default: 10)
+# - other parameters: filenames with source code to test
+#
+my $times = ($ARGV[0] || '') =~ m#^(\d+)$# ? shift : 10;
+
+my %code;
+my %temp;
+$/ = undef;
+print STDERR "Performing each test $times times\n" if $times > 1;
+
+foreach my $file ('',@ARGV) {
+    if ($file) {
+        print STDERR "$file ";
+        open( my $code,'<',$file ) or die "Could not read $file: $!\n";
+        $code{$file} = <$code>;
+        close( $code );             # don't care whether successful
+    } else {
+        print STDERR "(ref) ";
+        $code{$file} = '';
+    }
+
+    foreach my $i (1..$times) {
+        printf STDERR '%2d',$i;
+        open( my $out,"$^X -w ramthread1 $file |" )
+         or die "Could not test $file: $!\n";
+        push( @{$temp{$file}},<$out> );
+        close( $out ) or die "Could not close pipe for $file: $!\n";
+        print STDERR "\b\b";
+    }
+    print STDERR "\n";
+}
+
+# normalize results of multiple runs of the same code approach
+
+my %threads;
+my %result;
+my %deviation;
+while (my($file,$list) = each %temp) {
+    my %a;
+    my %l;
+    my %h;
+    foreach my $single (@{$list}) {
+        foreach (split( "\n",$single )) {
+            s#^\s+##;
+            my ($t,$ram) = split( m#\s+# );
+            $a{$t} += $ram;
+            $threads{$t} = 1;
+            if (exists( $l{$t} )) {
+                $l{$t} = $ram if $ram < $l{$t};
+            } else {
+                $l{$t} = $ram;
+            }
+            $h{$t} = $ram if $ram > ($h{$t} || 0);
+        }
+    }
+    $h{$_} = ($h{$_}-$l{$_})/2 foreach keys %h;
+    $h{$_} = $h{$_} ? sprintf( ' ±%2d',$h{$_} ) : '   ' foreach keys %h;
+    $a{$_} /= $times foreach keys %a;
+    $result{$file} = \%a;
+    $deviation{$file} = \%h;
+}
+
+# print out the result summary
+
+printf( "  #   (ref)%12s%12s%12s%12s%12s\n",@ARGV,'','','','','','' );
+foreach my $t (sort {$a <=> $b} keys %threads) {
+    printf '%3d',$t;
+    my $base = $result{''}->{$t};
+    printf '%8d%4s',$base,$deviation{''}->{$t};
+    foreach my $file (@ARGV) {
+        printf '%+8d%4s',$result{$file}->{$t} - $base,$deviation{$file}->{$t};
+    }
+    print "\n";
+}
+
+print "\n";
+my $line = "==================================================================";
+foreach (@ARGV) {
+    my $header = $line;
+    substr( $header,4,length($_)+2 ) = " $_ ";
+    print <<EOD;
+$header
+$code{$_}
+EOD
+}
+print "$line\n";

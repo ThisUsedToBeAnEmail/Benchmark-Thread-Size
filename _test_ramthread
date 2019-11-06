@@ -1,0 +1,11 @@
+use threads ();               # make sure we get the right modules
+$| = 1;               # make sure everything gets sent immediately
+print "$$\n";       # make sure parent knows the pid
+
+                  # whatever was received from STDIN
+
+for ($i=0; $i< 100 ; $i++) { 
+  threads->new( sub {print "started\n"; sleep( 86400 )} );
+}
+print "done\n";       # make sure the world knows we're done
+<>;                    # make sure it waits until killed
