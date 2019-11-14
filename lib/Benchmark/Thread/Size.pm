@@ -357,6 +357,8 @@ RAMTHREAD1
 
 __END__
 
+=encoding utf8
+
 =head1 NAME
 
 Benchmark::Thread::Size - report size of threads for different code approaches
